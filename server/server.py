@@ -5,6 +5,8 @@ from collections import deque
 from threading import Lock
 from pathlib import Path
 
+from fastapi.middleware.cors import CORSMiddleware
+
 from dotenv import load_dotenv
 from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
@@ -24,6 +26,17 @@ if not all([GROQ_API_KEY, DEVICE_TOKEN, CLIENT_TOKEN]):
 
 llm = Groq(api_key=GROQ_API_KEY)
 app = FastAPI(title="Portable AI IoT Controller")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5500",
+        "http://127.0.0.1:5500",
+    ],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "X-Client-Token"],
+)
 
 commands = deque()
 results = {}
