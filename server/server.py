@@ -4,11 +4,14 @@ import hmac
 import threading
 from pathlib import Path
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 app = FastAPI(title="ESP32 LED Cloud Controller")
+
+load_dotenv()
 
 CLIENT_TOKEN = os.environ.get("CLIENT_TOKEN", "")
 DEVICE_TOKEN = os.environ.get("DEVICE_TOKEN", "")
