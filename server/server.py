@@ -1,74 +1,118 @@
 
 import os
 import hmac
-from collections import deque
-from threading import Lock
+import threading
+from pathlib import Path
 
-from dotenv import load_dotenv
 from fastapi import FastAPI, Header, HTTPException
-from pydantic import BaseModel
+from fastapi.responses import FileResponse
+from pydantic import BaseModel, Field
 
-app = FastAPI(title="ESP32 Cloud LED Controller")
+app = FastAPI(title="ESP32 LED Cloud Controller")
 
-
-load_dotenv()
 CLIENT_TOKEN = os.environ.get("CLIENT_TOKEN", "")
 DEVICE_TOKEN = os.environ.get("DEVICE_TOKEN", "")
 
-commands = deque()
-queue_lock = Lock()
-MAX_QUEUE_SIZE = 20
+lock = threading.Lock()
+
+# Desired LED states; initially both OFF.
+desired_state = {
+    "led1": False,
+    "led2": False,
+    "version": 0,
+}
+
+device_report = {
+    "online": False,
+    "led1": False,
+    "led2": False,
+    "last_seen": None,
+}
 
 
-def check_token(provided: str, expected: str):
-    if not expected or not hmac.compare_digest(provided, expected):
+def authenticate(provided: str, expected: str):
+    token = provided.removeprefix("Bearer ").strip()
+
+    if not expected or not hmac.compare_digest(token, expected):
         raise HTTPException(status_code=401, detail="Invalid token")
 
 
-class BlinkRequest(BaseModel):
-    action: str
+class LEDState(BaseModel):
+    led1: bool
+    led2: bool
+
+
+class DeviceReport(BaseModel):
+    led1: bool
+    led2: bool
 
 
 @app.get("/")
+def dashboard():
+    return FileResponse(Path(__file__).with_name("index.html"))
+
+
+@app.get("/health")
 def health():
     return {"status": "online", "service": "ESP32 LED Controller"}
 
 
-@app.post("/command")
-def submit_command(
-    request: BlinkRequest,
-    authorization: str = Header(default="")
+@app.post("/api/leds")
+def set_leds(
+    body: LEDState,
+    authorization: str = Header(default=""),
 ):
-    check_token(
-        authorization.removeprefix("Bearer ").strip(),
-        CLIENT_TOKEN
-    )
+    authenticate(authorization, CLIENT_TOKEN)
 
-    if request.action != "blink_alternately":
-        raise HTTPException(status_code=400, detail="Unsupported action")
+    with lock:
+        desired_state["led1"] = body.led1
+        desired_state["led2"] = body.led2
+        desired_state["version"] += 1
 
-    with queue_lock:
-        if len(commands) >= MAX_QUEUE_SIZE:
-            raise HTTPException(status_code=429, detail="Command queue full")
-
-        command = {
-            "action": "blink_alternately",
-            "duration_seconds": 5,
-            "pins": [18, 19]
+        return {
+            "status": "accepted",
+            "leds": dict(desired_state),
         }
-        commands.append(command)
-
-    return {"status": "queued", "command": command}
 
 
-@app.get("/device/next")
-def next_command(authorization: str = Header(default="")):
-    check_token(
-        authorization.removeprefix("Bearer ").strip(),
-        DEVICE_TOKEN
-    )
+@app.get("/device/state")
+def get_device_state(
+    authorization: str = Header(default=""),
+):
+    authenticate(authorization, DEVICE_TOKEN)
 
-    with queue_lock:
-        command = commands.popleft() if commands else None
+    with lock:
+        return dict(desired_state)
 
-    return {"command": command}
+
+@app.post("/device/report")
+def report_device(
+    body: DeviceReport,
+    authorization: str = Header(default=""),
+):
+    authenticate(authorization, DEVICE_TOKEN)
+
+    from datetime import datetime, timezone
+
+    with lock:
+        device_report.update({
+            "online": True,
+            "led1": body.led1,
+            "led2": body.led2,
+            "last_seen": datetime.now(timezone.utc).isoformat(),
+        })
+
+    return {"status": "received"}
+
+
+@app.get("/api/status")
+def get_status(
+    authorization: str = Header(default=""),
+):
+    authenticate(authorization, CLIENT_TOKEN)
+
+    with lock:
+        return {
+            "desired": dict(desired_state),
+            "device": dict(device_report),
+        }
