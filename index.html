@@ -1,0 +1,770 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0b1120">
+  <title>ESP32 Control Center</title>
+
+  <style>
+    :root {
+      --bg: #0b1120;
+      --panel: #141e30;
+      --panel2: #0c1526;
+      --border: #29364b;
+      --text: #edf4ff;
+      --muted: #91a1ba;
+      --blue: #5485ff;
+      --green: #25d695;
+      --red: #ff687d;
+      --yellow: #ffd166;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 30px 16px;
+      background:
+        radial-gradient(ellipse at top, #18294a, var(--bg) 65%);
+      color: var(--text);
+      font-family: Inter, "Segoe UI", Arial, sans-serif;
+    }
+
+    button, input { font: inherit; }
+
+    .container {
+      max-width: 1000px;
+      margin: auto;
+    }
+
+    header { margin-bottom: 26px; }
+
+    .eyebrow {
+      color: var(--green);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 10px 0;
+      font-size: clamp(30px, 5vw, 44px);
+      letter-spacing: -1.2px;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      line-height: 1.7;
+      margin-top: 7px;
+    }
+
+    .panel {
+      margin-bottom: 20px;
+      padding: 22px;
+      background: rgba(20, 30, 48, .96);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      box-shadow: 0 12px 35px #0002;
+    }
+
+    .section-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+    }
+
+    .section-title {
+      margin: 0;
+      font-size: 19px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      background: var(--panel2);
+      border-radius: 99px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      flex-shrink: 0;
+      border-radius: 50%;
+      background: #94a3b8;
+    }
+
+    .dot.ok {
+      background: var(--green);
+      box-shadow: 0 0 10px #25d69566;
+    }
+
+    .dot.error { background: var(--red); }
+    .dot.wait { background: var(--yellow); }
+
+    label {
+      display: block;
+      margin: 17px 0 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    input {
+      width: 100%;
+      min-width: 0;
+      padding: 13px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      outline: none;
+      background: var(--panel2);
+      color: white;
+    }
+
+    input:focus { border-color: var(--blue); }
+
+    button {
+      padding: 12px 15px;
+      border: 1px solid transparent;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 750;
+      cursor: pointer;
+      transition: filter .15s ease, transform .15s ease;
+    }
+
+    button:hover:not(:disabled) {
+      filter: brightness(1.12);
+      transform: translateY(-1px);
+    }
+
+    button:disabled {
+      opacity: .48;
+      cursor: not-allowed;
+    }
+
+    .primary { background: var(--blue); color: white; }
+    .secondary { background: #273650; color: white; }
+    .danger {
+      background: #492333;
+      color: #ffb0bc;
+      border-color: #633047;
+    }
+
+    .outline {
+      background: transparent;
+      color: var(--text);
+      border-color: var(--border);
+    }
+
+    .connect-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 13px;
+    }
+
+    .connect-row button { white-space: nowrap; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+      margin-top: 18px;
+    }
+
+    .led-card {
+      padding: 22px;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: #0d1729;
+    }
+
+    .led-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .led-number {
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: 1px;
+    }
+
+    .pin {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .bulb {
+      display: grid;
+      place-items: center;
+      width: 68px;
+      height: 68px;
+      margin: 22px 0;
+      border: 1px solid #35435b;
+      border-radius: 50%;
+      background: #1d2a40;
+      color: #7c8aa0;
+      font-size: 30px;
+      transition: .2s ease;
+    }
+
+    .bulb.on {
+      border-color: #80ffd0;
+      background: var(--green);
+      color: #062e22;
+      box-shadow: 0 0 30px #25d69555;
+    }
+
+    .led-card h2 {
+      margin: 0 0 6px;
+      font-size: 22px;
+    }
+
+    .state {
+      display: inline-block;
+      margin: 16px 0;
+      padding: 7px 10px;
+      border-radius: 7px;
+      background: #263247;
+      color: #aebdd2;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .state.on {
+      background: #123b32;
+      color: var(--green);
+    }
+
+    .led-actions {
+      display: flex;
+      gap: 9px;
+    }
+
+    .led-actions button { flex: 1; }
+
+    .actions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    .actions button { min-height: 50px; }
+
+    .message {
+      margin-top: 14px;
+      padding: 13px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--panel2);
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+      overflow-wrap: anywhere;
+    }
+
+    .message.success { color: var(--green); }
+    .message.error { color: #ff9dac; }
+    .message.warning { color: var(--yellow); }
+
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 17px;
+    }
+
+    .status-item {
+      padding: 15px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--panel2);
+      min-width: 0;
+    }
+
+    .status-item span {
+      display: block;
+      margin-bottom: 9px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .status-item strong {
+      font-size: 14px;
+      overflow-wrap: anywhere;
+    }
+
+    .footer {
+      padding: 14px;
+      color: var(--muted);
+      text-align: center;
+      font-size: 12px;
+      line-height: 1.8;
+    }
+
+    @media (max-width: 560px) {
+      body { padding: 20px 12px; }
+      .panel { padding: 17px; }
+      .grid, .status-grid { grid-template-columns: 1fr; }
+      .connect-row { flex-direction: column; }
+      .connect-row button { width: 100%; }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="container">
+    <header>
+      <div class="eyebrow">IoT · Remote hardware</div>
+      <h1>ESP32 Control Center</h1>
+      <p class="subtitle">
+        Your hardware, controlled from anywhere through the cloud.<br>
+        GPIO 18 · GPIO 19 · FastAPI · Render
+      </p>
+    </header>
+
+    <section class="panel">
+      <div class="section-heading">
+        <h2 class="section-title">Cloud connection</h2>
+        <div class="pill">
+          <span class="dot" id="connectionDot"></span>
+          <span id="connectionText">Not connected</span>
+        </div>
+      </div>
+
+      <label for="serverUrl">Render server URL</label>
+      <input
+        id="serverUrl"
+        type="url"
+        value="https://portable-ai-iot-controller.onrender.com"
+        autocomplete="url"
+        spellcheck="false"
+      >
+
+      <label for="clientToken">Client token</label>
+      <input
+        id="clientToken"
+        type="password"
+        value="UvlI46kUHzZg6FKzy1r44tlMXRRuHR94NGB1G2r9_Xw"
+        placeholder="Enter your CLIENT_TOKEN"
+        autocomplete="off"
+      >
+
+      <div class="connect-row">
+        <button class="primary" id="connectBtn">Connect to server</button>
+        <button class="outline" id="disconnectBtn">Disconnect</button>
+      </div>
+
+      <div class="message" id="message" role="status" aria-live="polite">
+        Enter your client token and connect to the server.
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="section-heading">
+        <h2 class="section-title">Individual LED controls</h2>
+        <span class="pin">Live requested state</span>
+      </div>
+
+      <p class="subtitle">Switch each LED independently.</p>
+
+      <div class="grid">
+        <article class="led-card">
+          <div class="led-top">
+            <span class="led-number">OUTPUT 01</span>
+            <span class="pin">GPIO 18</span>
+          </div>
+
+          <div class="bulb" id="bulb1" aria-hidden="true">●</div>
+          <h2>LED 1</h2>
+          <div class="pin">Digital output · Pin 18</div>
+          <div><span class="state" id="state1">UNKNOWN</span></div>
+
+          <div class="led-actions">
+            <button class="primary command" id="led1On" disabled>Turn ON</button>
+            <button class="secondary command" id="led1Off" disabled>Turn OFF</button>
+          </div>
+        </article>
+
+        <article class="led-card">
+          <div class="led-top">
+            <span class="led-number">OUTPUT 02</span>
+            <span class="pin">GPIO 19</span>
+          </div>
+
+          <div class="bulb" id="bulb2" aria-hidden="true">●</div>
+          <h2>LED 2</h2>
+          <div class="pin">Digital output · Pin 19</div>
+          <div><span class="state" id="state2">UNKNOWN</span></div>
+
+          <div class="led-actions">
+            <button class="primary command" id="led2On" disabled>Turn ON</button>
+            <button class="secondary command" id="led2Off" disabled>Turn OFF</button>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2 class="section-title">Group controls</h2>
+      <p class="subtitle">Control both outputs with one command.</p>
+
+      <div class="actions">
+        <button class="primary command" id="bothOn" disabled>⚡ Both ON</button>
+        <button class="danger command" id="bothOff" disabled>■ Both OFF</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="section-heading">
+        <h2 class="section-title">Controller status</h2>
+        <button class="outline" id="refreshBtn" disabled>↻ Refresh status</button>
+      </div>
+
+      <div class="status-grid">
+        <div class="status-item">
+          <span>Requested LED 1 state</span>
+          <strong id="desired1">Unknown</strong>
+        </div>
+        <div class="status-item">
+          <span>Requested LED 2 state</span>
+          <strong id="desired2">Unknown</strong>
+        </div>
+        <div class="status-item">
+          <span>ESP32 last report</span>
+          <strong id="deviceStatus">Not checked</strong>
+        </div>
+        <div class="status-item">
+          <span>Last device report time</span>
+          <strong id="lastSeen">—</strong>
+        </div>
+      </div>
+
+      <div class="message">
+        Requested state is what the server wants the ESP32 to do.
+        The device report is the latest state reported by the ESP32.
+        These can differ if the device is offline.
+      </div>
+    </section>
+
+    <footer class="footer">
+      ESP32 Cloud LED Controller · FastAPI + Render + MicroPython<br>
+      Keep your client token private. It is entered only for this browser session.
+    </footer>
+  </main>
+
+  <script>
+    (() => {
+      const $ = id => document.getElementById(id);
+
+      let token = "";
+      let connected = false;
+      let busy = false;
+      let desired = { led1: false, led2: false };
+      let hasDesired = false;
+      let refreshTimer = null;
+
+      function baseUrl() {
+        return $("serverUrl").value.trim().replace(/\/+$/, "");
+      }
+
+      function setMessage(text, type = "") {
+        $("message").textContent = text;
+        $("message").className = "message" + (type ? " " + type : "");
+      }
+
+      function setConnection(text, type = "") {
+        $("connectionText").textContent = text;
+        $("connectionDot").className = "dot" + (type ? " " + type : "");
+      }
+
+      function updateButtons() {
+        const disabled = !connected || busy;
+
+        document.querySelectorAll(".command").forEach(button => {
+          button.disabled = disabled;
+        });
+
+        $("refreshBtn").disabled = !connected || busy;
+        $("connectBtn").disabled = busy;
+      }
+
+      function render() {
+        if (!hasDesired) return;
+
+        for (const [key, n] of [["led1", 1], ["led2", 2]]) {
+          const on = desired[key];
+
+          $("bulb" + n).classList.toggle("on", on);
+          $("state" + n).textContent = on ? "ON" : "OFF";
+          $("state" + n).classList.toggle("on", on);
+          $("desired" + n).textContent = on ? "ON" : "OFF";
+        }
+      }
+
+      async function api(path, options = {}) {
+        const url = baseUrl();
+
+        if (!url) {
+          throw new Error("Enter your Render server URL.");
+        }
+
+        const response = await fetch(url + path, {
+          ...options,
+          headers: {
+            "Authorization": "Bearer " + token,
+            ...(options.headers || {})
+          }
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          if (response.status === 401 || response.status === 403) {
+            throw new Error(
+              "Authentication failed. Check that you entered the current CLIENT_TOKEN."
+            );
+          }
+
+          throw new Error(
+            data.detail || `Server returned HTTP ${response.status}.`
+          );
+        }
+
+        return data;
+      }
+
+      function explainError(error) {
+        const message = error && error.message ? error.message : String(error);
+
+        if (
+          message === "Failed to fetch" ||
+          message.includes("NetworkError") ||
+          message.includes("Load failed")
+        ) {
+          return (
+            "The browser could not read a response from the server. " +
+            "Check the Render URL and /health endpoint. If the health endpoint " +
+            "works but this request fails, check FastAPI CORS settings and the " +
+            "browser Console (F12)."
+          );
+        }
+
+        return message;
+      }
+
+      async function refreshStatus(showMessage = false) {
+        if (!connected || busy) return;
+
+        try {
+          const data = await api("/api/status");
+
+          if (data.desired) {
+            desired = {
+              led1: Boolean(data.desired.led1),
+              led2: Boolean(data.desired.led2)
+            };
+
+            hasDesired = true;
+            render();
+          }
+
+          const device = data.device || {};
+
+          if (device.last_seen) {
+            const timestamp = Date.parse(device.last_seen);
+            const age = Number.isFinite(timestamp)
+              ? (Date.now() - timestamp) / 1000
+              : Infinity;
+
+            const recent = age >= -5 && age < 15;
+
+            $("deviceStatus").textContent = recent
+              ? "Recently reported"
+              : "Report is stale";
+
+            $("lastSeen").textContent = Number.isFinite(timestamp)
+              ? new Date(timestamp).toLocaleString()
+              : device.last_seen;
+          } else {
+            $("deviceStatus").textContent = "No report received";
+            $("lastSeen").textContent = "—";
+          }
+
+          setConnection("Cloud connected", "ok");
+
+          if (showMessage) {
+            setMessage("Status refreshed successfully.", "success");
+          }
+        } catch (error) {
+          setConnection("Connection error", "error");
+          setMessage(
+            "Could not retrieve status: " + explainError(error),
+            "error"
+          );
+        }
+      }
+
+      async function sendState(next) {
+        if (!connected) {
+          setMessage("Connect to the server before sending commands.", "error");
+          return;
+        }
+
+        if (busy) return;
+
+        busy = true;
+        updateButtons();
+        setMessage("Sending command to Render...");
+
+        try {
+          const data = await api("/api/leds", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              led1: Boolean(next.led1),
+              led2: Boolean(next.led2)
+            })
+          });
+
+          const result = data.leds || next;
+
+          desired = {
+            led1: Boolean(result.led1),
+            led2: Boolean(result.led2)
+          };
+
+          hasDesired = true;
+          render();
+
+          setMessage(
+            "Command accepted by Render. The ESP32 will apply the requested state when it next polls the server.",
+            "success"
+          );
+        } catch (error) {
+          setMessage("Command failed: " + explainError(error), "error");
+        } finally {
+          busy = false;
+          updateButtons();
+        }
+
+        await refreshStatus();
+      }
+
+      async function connect() {
+        if (busy) return;
+
+        const enteredToken = $("clientToken").value.trim();
+
+        if (!enteredToken) {
+          setMessage("Please enter your CLIENT_TOKEN.", "error");
+          return;
+        }
+
+        if (!baseUrl().startsWith("https://")) {
+          setMessage("Use your HTTPS Render URL.", "error");
+          return;
+        }
+
+        token = enteredToken;
+        $("connectBtn").disabled = true;
+        setConnection("Connecting...", "wait");
+        setMessage("Contacting your cloud server...");
+
+        try {
+          // Authenticate by requesting the existing status endpoint.
+          const data = await api("/api/status");
+
+          if (data.desired) {
+            desired = {
+              led1: Boolean(data.desired.led1),
+              led2: Boolean(data.desired.led2)
+            };
+            hasDesired = true;
+            render();
+          }
+
+          connected = true;
+          setConnection("Cloud connected", "ok");
+          setMessage("Connected successfully. Dashboard is ready.", "success");
+          updateButtons();
+
+          await refreshStatus();
+
+          if (refreshTimer) clearInterval(refreshTimer);
+          refreshTimer = setInterval(() => refreshStatus(), 5000);
+        } catch (error) {
+          connected = false;
+          token = "";
+          setConnection("Connection failed", "error");
+          setMessage("Connection failed: " + explainError(error), "error");
+          updateButtons();
+        } finally {
+          $("connectBtn").disabled = false;
+        }
+      }
+
+      function disconnect() {
+        connected = false;
+        token = "";
+
+        if (refreshTimer) clearInterval(refreshTimer);
+        refreshTimer = null;
+
+        setConnection("Disconnected");
+        setMessage("Dashboard disconnected. The last requested LED state is unchanged.");
+        updateButtons();
+      }
+
+      $("connectBtn").addEventListener("click", connect);
+      $("disconnectBtn").addEventListener("click", disconnect);
+
+      $("refreshBtn").addEventListener("click", () => refreshStatus(true));
+
+      $("led1On").addEventListener("click", () =>
+        sendState({ ...desired, led1: true })
+      );
+
+      $("led1Off").addEventListener("click", () =>
+        sendState({ ...desired, led1: false })
+      );
+
+      $("led2On").addEventListener("click", () =>
+        sendState({ ...desired, led2: true })
+      );
+
+      $("led2Off").addEventListener("click", () =>
+        sendState({ ...desired, led2: false })
+      );
+
+      $("bothOn").addEventListener("click", () =>
+        sendState({ led1: true, led2: true })
+      );
+
+      $("bothOff").addEventListener("click", () =>
+        sendState({ led1: false, led2: false })
+      );
+
+      $("serverUrl").addEventListener("change", () => {
+        if (connected) disconnect();
+      });
+
+      updateButtons();
+    })();
+  </script>
+</body>
+</html>
